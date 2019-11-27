@@ -205,7 +205,9 @@ extension ViewController {
         case 8:
             // Make toast activity
             if !showingActivity {
-                self.navigationController?.view.makeToastActivity(.center)
+                var style = ToastStyle()
+                style.activitySize = CGSize(width: 50, height: 50)
+                self.navigationController?.view.makeToastActivity(.center, "这是一个测试的数据...", style)
             } else {
                 self.navigationController?.view.hideToastActivity()
             }

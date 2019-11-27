@@ -239,6 +239,17 @@ public extension UIView {
     // MARK: - Activity Methods
     
     /**
+     Creates and displays a new toast activity indicator view contain message string at a specified position.
+
+     */
+    func makeToastActivity(_ position: ToastPosition, _ message: String?, _ style: ToastStyle = ToastManager.shared.style) {
+        guard objc_getAssociatedObject(self, &ToastKeys.activityView) as? UIView == nil else { return }
+        let toast = createToastViewForActivity(message, style: style)
+        let point = position.centerPoint(forToast: toast, inSuperview: self)
+        makeToastActivity(toast, point: point)
+    }
+    
+    /**
      Creates and displays a new toast activity indicator view at a specified position.
     
      @warning Only one toast activity indicator view can be presented per superview. Subsequent
@@ -253,7 +264,6 @@ public extension UIView {
     func makeToastActivity(_ position: ToastPosition) {
         // sanity
         guard objc_getAssociatedObject(self, &ToastKeys.activityView) as? UIView == nil else { return }
-        
         let toast = createToastActivityView()
         let point = position.centerPoint(forToast: toast, inSuperview: self)
         makeToastActivity(toast, point: point)
@@ -292,6 +302,9 @@ public extension UIView {
             }
         }
     }
+    
+    
+    
     
     // MARK: - Private Activity Methods
     
@@ -391,6 +404,81 @@ public extension UIView {
     private func toastTimerDidFinish(_ timer: Timer) {
         guard let toast = timer.userInfo as? UIView else { return }
         hideToast(toast)
+    }
+    
+    /// 自定义带文字的Activity弹窗
+    func createToastViewForActivity(_ message: String?, style: ToastStyle = ToastManager.shared.style) -> UIView {
+        
+        var messageLabel: UILabel?
+        let wrapperView = UIView()
+        wrapperView.backgroundColor = style.backgroundColor
+        wrapperView.autoresizingMask = [.flexibleLeftMargin, .flexibleRightMargin, .flexibleTopMargin, .flexibleBottomMargin]
+        wrapperView.layer.cornerRadius = style.cornerRadius
+        if style.displayShadow {
+            wrapperView.layer.shadowColor = UIColor.black.cgColor
+            wrapperView.layer.shadowOpacity = style.shadowOpacity
+            wrapperView.layer.shadowRadius = style.shadowRadius
+            wrapperView.layer.shadowOffset = style.shadowOffset
+        }
+        
+        let activityIndicatorView = UIActivityIndicatorView(style: style.activityStyle)
+        activityIndicatorView.color = style.activityIndicatorColor
+        activityIndicatorView.bounds = CGRect(x: 0, y: 0, width: style.activitySize.width, height: style.activitySize.height)
+        activityIndicatorView.startAnimating()
+        
+        
+        if let message = message {
+            messageLabel = UILabel()
+            messageLabel?.text = message
+            messageLabel?.numberOfLines = style.messageNumberOfLines
+            messageLabel?.font = style.messageFont
+            messageLabel?.textAlignment = style.activityTextAlignment
+            messageLabel?.lineBreakMode = .byTruncatingTail;
+            messageLabel?.textColor = style.messageColor
+            messageLabel?.backgroundColor = UIColor.clear
+            
+            let maxMessageSize = CGSize(width: (self.bounds.size.width * style.maxWidthPercentage), height: self.bounds.size.height * style.maxHeightPercentage)
+            let messageSize = messageLabel?.sizeThatFits(maxMessageSize)
+            if let messageSize = messageSize {
+                let actualWidth = min(messageSize.width, maxMessageSize.width)
+                let actualHeight = min(messageSize.height, maxMessageSize.height)
+                messageLabel?.frame = CGRect(x: 0.0, y: 0.0, width: actualWidth, height: actualHeight)
+            }
+        }
+        
+        var messageRect = CGRect.zero
+        
+        if let messageLabel = messageLabel {
+            messageRect.origin.x = style.horizontalPadding
+            messageRect.origin.y = style.verticalPadding + activityIndicatorView.frame.maxY
+            messageRect.size.width = messageLabel.frame.size.width
+            messageRect.size.height = messageLabel.frame.size.height
+        }
+        
+        let indicatorViewWidth = activityIndicatorView.bounds.size.width
+        let indicatorViewHeight = activityIndicatorView.bounds.size.height
+
+        let wrapperViewWidth = max(indicatorViewWidth + 2 * style.horizontalPadding,
+                                   messageRect.size.width + 2 * style.horizontalPadding)
+        let dealt = (messageLabel == nil ? 2.0 * style.verticalPadding : 3.0 * style.verticalPadding)
+        let wrapperViewHeight = max(indicatorViewHeight + 2 * style.verticalPadding,
+                                    indicatorViewHeight + messageRect.size.height + dealt)
+        wrapperView.frame = CGRect(x: 0, y: 0, width: wrapperViewWidth, height: wrapperViewHeight)
+        
+        activityIndicatorView.center = CGPoint(x: wrapperViewWidth / 2.0,
+                                               y: activityIndicatorView.bounds.size.height / 2.0 + style.verticalPadding)
+        wrapperView.addSubview(activityIndicatorView)
+        
+        if let messageLabel = messageLabel {
+            messageRect.origin.y = style.horizontalPadding
+            messageRect.origin.y = activityIndicatorView.frame.maxY + style.verticalPadding
+            if activityIndicatorView.frame.size.width > messageRect.size.width {
+                messageRect.size.width = activityIndicatorView.frame.size.width
+            }
+            messageLabel.frame = messageRect
+            wrapperView.addSubview(messageLabel)
+        }
+        return wrapperView
     }
     
     // MARK: - Toast Construction
@@ -687,6 +775,16 @@ public struct ToastStyle {
      Activity background color. Default is `.black` at 80% opacity.
      */
     public var activityBackgroundColor: UIColor = UIColor.black.withAlphaComponent(0.8)
+    
+    /**
+      The activity message text alignment. Default is `NSTextAlignment.Center`.
+     */
+    public var activityTextAlignment: NSTextAlignment = .center
+    
+    /**
+     The activityIndicatorView style. Default is `.whiteLarge`
+     */
+    public var activityStyle: UIActivityIndicatorView.Style = .whiteLarge
     
 }
 
